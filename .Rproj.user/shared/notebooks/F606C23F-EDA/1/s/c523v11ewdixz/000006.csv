@@ -1,0 +1,6 @@
+"0","# Loading required packages"
+"0","library(data.table)"
+"0",""
+"0","# Loading data"
+"0","dt_raw <- fread(""../data/train.csv"")"
+"0",""

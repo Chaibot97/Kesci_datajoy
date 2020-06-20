@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1592654088045.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3035829841",
+    "id" : "110144CE",
+    "lastKnownWriteTime" : 1592656911,
+    "last_content_update" : 1592656911183,
+    "path" : "D:/Kesci/DataJoy-Satisfaction/Kesci_datajoy/scripts/EDA.Rmd",
+    "project_path" : "scripts/EDA.Rmd",
+    "properties" : {
+        "chunk_output_type" : "inline",
+        "cursorPosition" : "37,15",
+        "scrollLine" : "19",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}
