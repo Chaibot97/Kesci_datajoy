@@ -1752,22 +1752,107 @@ summary {
 <p>EDA Analysis for the Satisfaction Dataset</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBMb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2VzXG5saWJyYXJ5KGRhdGEudGFibGUpXG5cbiMgTG9hZGluZyBkYXRhXG5kdF9yYXcgPC0gZnJlYWQoXCIuLi9kYXRhL3RyYWluLmNzdlwiKVxuXG5gYGAifQ== -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBMb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2VzXG5saWJyYXJ5KGRhdGEudGFibGUpXG5gYGAifQ== -->
 <pre class="r"><code># Loading required packages
-library(data.table)
+library(data.table)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiUmVnaXN0ZXJlZCBTMyBtZXRob2Qgb3ZlcndyaXR0ZW4gYnkgJ2RhdGEudGFibGUnOlxuICBtZXRob2QgICAgICAgICAgIGZyb21cbiAgcHJpbnQuZGF0YS50YWJsZSAgICAgXG5kYXRhLnRhYmxlIDEuMTIuOCB1c2luZyA2IHRocmVhZHMgKHNlZSA/Z2V0RFR0aHJlYWRzKS4gIExhdGVzdCBuZXdzOiByLWRhdGF0YWJsZS5jb21cbiJ9 -->
+<pre><code>Registered S3 method overwritten by &#39;data.table&#39;:
+  method           from
+  print.data.table     
+data.table 1.12.8 using 6 threads (see ?getDTthreads).  Latest news: r-datatable.com</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShnZ3Bsb3QyKVxuYGBgIn0= -->
+<pre class="r"><code>library(ggplot2)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiUlN0dWRpbyBDb21tdW5pdHkgaXMgYSBncmVhdCBwbGFjZSB0byBnZXQgaGVscDogaHR0cHM6Ly9jb21tdW5pdHkucnN0dWRpby5jb20vYy90aWR5dmVyc2VcbiJ9 -->
+<pre><code>RStudio Community is a great place to get help: https://community.rstudio.com/c/tidyverse</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBMb2FkaW5nIGRhdGFcbmR0X3RyYWluIDwtIGZyZWFkKGZpbGUgPSBcIi4uL2RhdGEvdHJhaW4uY3N2XCIsIGtleSA9IFwiaWRcIilcbmR0X3Rlc3QgPC0gZnJlYWQoZmlsZSA9IFwiLi4vZGF0YS90ZXN0LmNzdlwiLCBrZXkgPSBcImlkXCIpXG5kdF9mdWxsIDwtIHJiaW5kbGlzdChcbiAgbGlzdCh0cmFpbiA9IGR0X3RyYWluLCB0ZXN0ID0gZHRfdGVzdCksXG4gIHVzZS5uYW1lcyA9IFRSVUUsXG4gIGZpbGwgPSBUUlVFLFxuICBpZGNvbCA9IFwic2V0SURcIlxuKVxuXG4jIE1ldGEgZGF0YVxubWV0YSA8LSBsaXN0KFxuICBtYXRjaF9rZXkgPSBcImlkXCIsXG4gIHNldElEID0gXCJzZXRJRFwiLFxuICB0YXJnZXQgPSBcInNhdGlzZmFjdGlvbl9sZXZlbFwiLFxuXG4gIGZlYXRfbnVtID0gYyhcbiAgICBcImxhc3RfZXZhbHVhdGlvblwiLCBcbiAgICBcIm51bWJlcl9wcm9qZWN0XCIsIFxuICAgIFwiYXZlcmFnZV9tb250aGx5X2hvdXJzXCIsIFxuICAgIFwidGltZV9zcGVuZF9jb21wYW55XCIsXG4gICAgXCJXb3JrX2FjY2lkZW50XCIsXG4gICAgXCJzYWxhcnlcIixcbiAgICBcInByb21vdGlvbl9sYXN0XzV5ZWFyc1wiXG4gICksXG4gIFxuICBmZWF0X2NhdCA9IGMoXG4gICAgXCJwYWNrYWdlXCIsXG4gICAgXCJkaXZpc2lvblwiXG4gICAgXG4gIClcbilcbmBgYCJ9 -->
+<pre class="r"><code># Loading data
+dt_train &lt;- fread(file = &quot;../data/train.csv&quot;, key = &quot;id&quot;)
+dt_test &lt;- fread(file = &quot;../data/test.csv&quot;, key = &quot;id&quot;)
+dt_full &lt;- rbindlist(
+  list(train = dt_train, test = dt_test),
+  use.names = TRUE,
+  fill = TRUE,
+  idcol = &quot;setID&quot;
+)
 
-# Loading data
-dt_raw &lt;- fread(&quot;../data/train.csv&quot;)
-</code></pre>
+# Meta data
+meta &lt;- list(
+  match_key = &quot;id&quot;,
+  setID = &quot;setID&quot;,
+  target = &quot;satisfaction_level&quot;,
+
+  feat_num = c(
+    &quot;last_evaluation&quot;, 
+    &quot;number_project&quot;, 
+    &quot;average_monthly_hours&quot;, 
+    &quot;time_spend_company&quot;,
+    &quot;Work_accident&quot;,
+    &quot;salary&quot;,
+    &quot;promotion_last_5years&quot;
+  ),
+  
+  feat_cat = c(
+    &quot;package&quot;,
+    &quot;division&quot;
+    
+  )
+)</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>Check data quality</p>
+<p>Assess data quality</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBNaXNzaW5nIHZhbHVlIGNvdW50IG92ZXIgYWxsIHByZWRpY3RvcnNcbmNudF9taXNzaW5nIDwtIGR0X2Z1bGxbLCBzYXBwbHkoLlNELCBmdW5jdGlvbih4KSBzdW0oaXMubmEoeCkpKSwgLlNEY29scyA9IGMobWV0YSRmZWF0X251bSwgbWV0YSRmZWF0X2NhdCldXG5cbiMgTm8gbWlzc2luZyBkYXRhXG5gYGAifQ== -->
+<pre class="r"><code># Missing value count over all predictors
+cnt_missing &lt;- dt_full[, sapply(.SD, function(x) sum(is.na(x))), .SDcols = c(meta$feat_num, meta$feat_cat)]
+
+# No missing data</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Check distribution</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
 <!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Check correlation between numeric predictors</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucGx0X2NvcnJfbWF0IDwtIGZ1bmN0aW9uKGR0LCB2YXJzLCB0aXRsZSA9IE5VTEwpIHtcbiAgY29yciA8LSBjb3IoZHRbLCB2YXJzLCB3aXRoID0gRkFMU0VdKVxuICBwX21hdCA8LSBjb3JfcG1hdChkdFssIHZhcnMsIHdpdGggPSBGQUxTRV0pXG4gIHBsdCA8LSBnZ2NvcnJwbG90KFxuICAgIGNvcnIsIFxuICAgIHAubWF0ID0gcF9tYXQsXG4gICAgXG4gICAgaW5zaWcgPSBcImJsYW5rXCIsXG4gICAgaGMub3JkZXIgPSBUUlVFLCBcbiAgICBsYWIgPSBUUlVFLFxuICAgIHR5cGUgPSBcImxvd2VyXCIsXG4gICAgXG4gICAgZ2d0aGVtZSA9IHRoZW1lX2dyYXksXG4gICAgb3V0bGluZS5jb2wgPSBcIndoaXRlXCIsXG4gICAgY29sb3JzID0gYyhcIiM2RDlFQzFcIiwgXCJ3aGl0ZVwiLCBcIiNFNDY3MjZcIilcbiAgKSArIFxuICAgIGxhYnModGl0bGUgPSB0aXRsZSwgeCA9ICcnLCB5ID0gJycpXG4gIFxuICByZXR1cm4obGlzdChtYXQgPSBjb3JyLCBwbHQgPSBwbHQpKVxufVxuXG5cbiMgT3ZlcmFsbCBlc3RpbWF0aW9uIG9mIGNvcnJlbGF0aW9uXG5jb3JyX3RyYWluIDwtIHBsdF9jb3JyX21hdChkdF90cmFpbiwgbWV0YSRmZWF0X251bSwgXCJDb3JyIE1hdCBUcmFpbiBTZXQgRnVsbFwiKVxuY29ycl90ZXN0IDwtIHBsdF9jb3JyX21hdChkdF90ZXN0LCBtZXRhJGZlYXRfbnVtLCBcIkNvcnIgTWF0IFRlc3QgU2V0IEZ1bGxcIilcbmBgYCJ9 -->
+<pre class="r"><code>plt_corr_mat &lt;- function(dt, vars, title = NULL) {
+  corr &lt;- cor(dt[, vars, with = FALSE])
+  p_mat &lt;- cor_pmat(dt[, vars, with = FALSE])
+  plt &lt;- ggcorrplot(
+    corr, 
+    p.mat = p_mat,
+    
+    insig = &quot;blank&quot;,
+    hc.order = TRUE, 
+    lab = TRUE,
+    type = &quot;lower&quot;,
+    
+    ggtheme = theme_gray,
+    outline.col = &quot;white&quot;,
+    colors = c(&quot;#6D9EC1&quot;, &quot;white&quot;, &quot;#E46726&quot;)
+  ) + 
+    labs(title = title, x = &#39;&#39;, y = &#39;&#39;)
+  
+  return(list(mat = corr, plt = plt))
+}
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkVEQSINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCkVEQSBBbmFseXNpcyBmb3IgdGhlIFNhdGlzZmFjdGlvbiBEYXRhc2V0DQoNCmBgYHtyfQ0KIyBMb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2VzDQpsaWJyYXJ5KGRhdGEudGFibGUpDQoNCiMgTG9hZGluZyBkYXRhDQpkdF90cmFpbiA8LSBmcmVhZChmaWxlID0gIi4uL2RhdGEvdHJhaW4uY3N2Iiwga2V5ID0gImlkIikNCmR0X3Rlc3QgPC0gZnJlYWQoZmlsZSA9ICIuLi9kYXRhL3Rlc3QuY3N2Iiwga2V5ID0gImlkIikNCmR0X2Z1bGwgPC0gcmJpbmRsaXN0KA0KICBsaXN0KHRyYWluID0gZHRfdHJhaW4sIHRlc3QgPSBkdF90ZXN0KSwNCiAgdXNlLm5hbWVzID0gVFJVRSwNCiAgZmlsbCA9IFRSVUUsDQogIGlkY29sID0gInNldElEIg0KKQ0KDQojIE1ldGEgZGF0YQ0KbWV0YSA8LSBsaXN0KA0KICBtYXRjaF9rZXkgPSAiaWQiLA0KICBzZXRJRCA9ICJzZXRJRCIsDQogIHRhcmdldCA9ICJzYXRpc2ZhY3Rpb25fbGV2ZWwiLA0KDQogIGZlYXRfbnVtID0gYygNCiAgICAibGFzdF9ldmFsdWF0aW9uIiwgDQogICAgIm51bWJlcl9wcm9qZWN0IiwgDQogICAgImF2ZXJhZ2VfbW9udGhseV9ob3VycyIsIA0KICAgICJ0aW1lX3NwZW5kX2NvbXBhbnkiLA0KICAgICJXb3JrX2FjY2lkZW50IiwNCiAgICAic2FsYXJ5IiwNCiAgICAicHJvbW90aW9uX2xhc3RfNXllYXJzIg0KICApLA0KICANCiAgZmVhdF9jYXQgPSBjKA0KICAgICJwYWNrYWdlIiwNCiAgICAiZGl2aXNpb24iDQogICAgDQogICkNCikNCmBgYA0KDQpDaGVjayBkYXRhIHF1YWxpdHkNCmBgYHtyfQ0KIyBNaXNzaW5nIHZhbHVlIGNvdW50IG92ZXIgYWxsIHByZWRpY3RvcnMNCmNudF9taXNzaW5nIDwtIGR0X2Z1bGxbLCBzYXBwbHkoLlNELCBmdW5jdGlvbih4KSBzdW0oaXMubmEoeCkpKSwgLlNEY29scyA9IGMobWV0YSRmZWF0X251bSwgbWV0YSRmZWF0X2NhdCldDQoNCg0KYGBgDQo=</div>
+
+# Overall estimation of correlation
+corr_train &lt;- plt_corr_mat(dt_train, meta$feat_num, &quot;Corr Mat Train Set Full&quot;)
+corr_test &lt;- plt_corr_mat(dt_test, meta$feat_num, &quot;Corr Mat Test Set Full&quot;)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkVEQSINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCkVEQSBBbmFseXNpcyBmb3IgdGhlIFNhdGlzZmFjdGlvbiBEYXRhc2V0DQoNCmBgYHtyfQ0KIyBMb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2VzDQpsaWJyYXJ5KGRhdGEudGFibGUpDQpsaWJyYXJ5KGdncGxvdDIpDQpsaWJyYXJ5KGdnY29ycnBsb3QpDQoNCiMgTG9hZGluZyBkYXRhDQpkdF90cmFpbiA8LSBmcmVhZChmaWxlID0gIi4uL2RhdGEvdHJhaW4uY3N2Iiwga2V5ID0gImlkIikNCmR0X3Rlc3QgPC0gZnJlYWQoZmlsZSA9ICIuLi9kYXRhL3Rlc3QuY3N2Iiwga2V5ID0gImlkIikNCmR0X2Z1bGwgPC0gcmJpbmRsaXN0KA0KICBsaXN0KHRyYWluID0gZHRfdHJhaW4sIHRlc3QgPSBkdF90ZXN0KSwNCiAgdXNlLm5hbWVzID0gVFJVRSwNCiAgZmlsbCA9IFRSVUUsDQogIGlkY29sID0gInNldElEIg0KKQ0KDQojIE1ldGEgZGF0YQ0KbWV0YSA8LSBsaXN0KA0KICBtYXRjaF9rZXkgPSAiaWQiLA0KICBzZXRJRCA9ICJzZXRJRCIsDQogIHRhcmdldCA9ICJzYXRpc2ZhY3Rpb25fbGV2ZWwiLA0KDQogIGZlYXRfbnVtID0gYygNCiAgICAibGFzdF9ldmFsdWF0aW9uIiwgDQogICAgIm51bWJlcl9wcm9qZWN0IiwgDQogICAgImF2ZXJhZ2VfbW9udGhseV9ob3VycyIsIA0KICAgICJ0aW1lX3NwZW5kX2NvbXBhbnkiLA0KICAgICJXb3JrX2FjY2lkZW50IiwNCiAgICAicHJvbW90aW9uX2xhc3RfNXllYXJzIg0KICApLA0KICANCiAgZmVhdF9jYXQgPSBjKA0KICAgICJzYWxhcnkiLA0KICAgICJwYWNrYWdlIiwNCiAgICAiZGl2aXNpb24iDQogICAgDQogICkNCikNCmBgYA0KDQpBc3Nlc3MgZGF0YSBxdWFsaXR5DQpgYGB7cn0NCiMgTWlzc2luZyB2YWx1ZSBjb3VudCBvdmVyIGFsbCBwcmVkaWN0b3JzDQpjbnRfbWlzc2luZyA8LSBkdF9mdWxsWywgc2FwcGx5KC5TRCwgZnVuY3Rpb24oeCkgc3VtKGlzLm5hKHgpKSksIC5TRGNvbHMgPSBjKG1ldGEkZmVhdF9udW0sIG1ldGEkZmVhdF9jYXQpXQ0KDQojIE5vIG1pc3NpbmcgZGF0YQ0KYGBgDQoNCkNoZWNrIGRpc3RyaWJ1dGlvbg0KYGBge3J9DQoNCg0KDQoNCmBgYA0KDQoNCg0KQ2hlY2sgY29ycmVsYXRpb24gYmV0d2VlbiBudW1lcmljIHByZWRpY3RvcnMNCmBgYHtyfQ0KcGx0X2NvcnJfbWF0IDwtIGZ1bmN0aW9uKGR0LCB2YXJzLCB0aXRsZSA9IE5VTEwpIHsNCiAgY29yciA8LSBjb3IoZHRbLCB2YXJzLCB3aXRoID0gRkFMU0VdKQ0KICBwX21hdCA8LSBjb3JfcG1hdChkdFssIHZhcnMsIHdpdGggPSBGQUxTRV0pDQogIHBsdCA8LSBnZ2NvcnJwbG90KA0KICAgIGNvcnIsIA0KICAgIHAubWF0ID0gcF9tYXQsDQogICAgDQogICAgaW5zaWcgPSAiYmxhbmsiLA0KICAgIGhjLm9yZGVyID0gVFJVRSwgDQogICAgbGFiID0gVFJVRSwNCiAgICB0eXBlID0gImxvd2VyIiwNCiAgICANCiAgICBnZ3RoZW1lID0gdGhlbWVfZ3JheSwNCiAgICBvdXRsaW5lLmNvbCA9ICJ3aGl0ZSIsDQogICAgY29sb3JzID0gYygiIzZEOUVDMSIsICJ3aGl0ZSIsICIjRTQ2NzI2IikNCiAgKSArIA0KICAgIGxhYnModGl0bGUgPSB0aXRsZSwgeCA9ICcnLCB5ID0gJycpDQogIA0KICByZXR1cm4obGlzdChtYXQgPSBjb3JyLCBwbHQgPSBwbHQpKQ0KfQ0KDQoNCiMgT3ZlcmFsbCBlc3RpbWF0aW9uIG9mIGNvcnJlbGF0aW9uDQpjb3JyX3RyYWluIDwtIHBsdF9jb3JyX21hdChkdF90cmFpbiwgbWV0YSRmZWF0X251bSwgIkNvcnIgTWF0IFRyYWluIFNldCBGdWxsIikNCmNvcnJfdGVzdCA8LSBwbHRfY29ycl9tYXQoZHRfdGVzdCwgbWV0YSRmZWF0X251bSwgIkNvcnIgTWF0IFRlc3QgU2V0IEZ1bGwiKQ0KYGBgDQo=</div>
 
 
 
