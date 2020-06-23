@@ -1,0 +1,160 @@
+---
+title: "XGBoost Quick Model"
+output: html_notebook
+---
+
+```{r}
+library(xgboost)
+library(ggplot2)
+library(data.table)
+library(magrittr)
+```
+
+
+```{r}
+# Meta data
+meta <- list(
+  match_key = "id",
+  target = "satisfaction_level",
+
+  feat_num = c(
+    "last_evaluation", 
+    "number_project", 
+    "average_monthly_hours", 
+    "time_spend_company",
+    "Work_accident",
+    "promotion_last_5years",
+    "salary",
+    "package"
+  ),
+  
+  feat_cat = c(
+    "division"
+  )
+)
+
+
+# Loading data
+#   Combine train test and convert cat data to factor
+dt_full <- rbindlist(
+  list(
+    train = fread(file = "../data/train.csv", key = "id"),
+    test = fread(file = "../data/test.csv", key = "id")
+  ),
+  use.names = TRUE, 
+  fill = TRUE, 
+  idcol = "setID"
+)
+```
+
+
+
+```{r}
+# Salary and package are ordered
+#   convert to numerical data
+dt_full[, salary := as.numeric(factor(salary, levels = c("low", "medium", "high"), ordered = TRUE))]
+dt_full[, package := as.numeric(factor(package, levels = rev(c('a', 'b', 'c', 'd', 'e')), ordered = TRUE))]
+dt_full[, division := factor(division)]
+dt_full <- split(dt_full, dt_full[["setID"]])
+
+
+# Partition dataset into dev and validation
+n_obs_train <- nrow(dt_full$train)
+idx_dev <- sample(n_obs_train, n_obs_train * 0.6)
+idx_val <- setdiff(1:n_obs_train, idx_dev)
+
+dt_lst <- list(
+  obj = dt_full$test,
+  all = dt_full$train,
+  dev = dt_full$train[idx_dev],
+  val = dt_full$train[idx_val]
+)
+```
+
+
+
+```{r}
+# Create xgb.DMatrix
+my.DMatrix <- function(dt, feat_num, feat_cat = NULL) {
+  
+  if (!is.null(feat_cat)) {
+    one_hot <- lapply(dt[, feat_cat, with = FALSE], contrasts, contrasts = FALSE)
+    mt_cat <- model.matrix(
+      ~ . + 0, data = dt[, feat_cat, with = FALSE], contrasts.arg = one_hot
+    )
+    mt <- cbind(as.matrix(dt[, feat_num, with = FALSE]), mt_cat)
+  } else {
+    mt <- as.matrix(dt[, feat_num, with = FALSE])
+  }
+  
+  mt <- xgb.DMatrix(
+    data = mt,
+    label = dt[[meta$target]]
+  )
+  
+  return(mt)
+}
+
+mt_lst <- lapply(
+  dt_lst,
+  my.DMatrix,
+  feat_num = meta$feat_num,
+  feat_cat = meta$feat_cat
+)
+```
+
+### XGBoost Quick Model
+
+```{r}
+args_xgb_quick <- list(
+  objective = "reg:squarederror",
+  eval_metric = "rmse",
+  maximize = FALSE,
+  
+  eta = 0.03,
+  subsample = 0.8,
+  colsample_bytree = 0.8,
+  
+  min_child_weight = 200,
+  gamma = 0.15,
+  max_depth = 6
+)
+
+model_xgb_quick <- xgb.train(
+  params = args_xgb_quick,
+  data = mt_dev,
+  nrounds = 1024,
+  
+  watchlist = list(
+    full_set = mt_lst$all,
+    develope = mt_lst$dev,
+    validate = mt_lst$val
+  ),
+  early_stopping_rounds = 50,
+  
+  verbose = 1,
+  print_every_n = 15
+)
+```
+
+```{r}
+. <- sapply(
+  names(dt_lst),
+  function(set, dt_lst, mt_lst, model, score_name) {
+    dt_lst[[set]][, (score_name) := predict(model, mt_lst[[set]], ntreelimit = model$best_ntreelimit)]
+  },
+  model = model_xgb_quick,
+  dt_lst = dt_lst,
+  mt_lst = mt_lst,
+  score_name = "pred_quick"
+)
+
+my.mse <- function(y, y_hat) {
+  mean((y - y_hat)^2)
+}
+
+my.mse(dt_lst$all$satisfaction_level, dt_lst$all$pred_quick)
+my.mse(dt_lst$dev$satisfaction_level, dt_lst$dev$pred_quick)
+my.mse(dt_lst$val$satisfaction_level, dt_lst$val$pred_quick)
+```
+
