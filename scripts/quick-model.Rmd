@@ -8,6 +8,7 @@ library(xgboost)
 library(ggplot2)
 library(data.table)
 library(magrittr)
+library(glmnet)
 ```
 
 
@@ -156,5 +157,9 @@ my.mse <- function(y, y_hat) {
 my.mse(dt_lst$all$satisfaction_level, dt_lst$all$pred_quick)
 my.mse(dt_lst$dev$satisfaction_level, dt_lst$dev$pred_quick)
 my.mse(dt_lst$val$satisfaction_level, dt_lst$val$pred_quick)
+```
+### Try Elastic Net
+```{r}
+model_glmnet_quick <- .
 ```
 
