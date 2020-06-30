@@ -1,0 +1,243 @@
+---
+title: "XGBoost Quick Model"
+output: html_notebook
+---
+
+```{r}
+library(xgboost)
+library(ggplot2)
+library(data.table)
+library(magrittr)
+library(mltools)
+library(glmnet)
+```
+
+
+```{r}
+# Meta data
+meta <- list(
+  match_key = "id",
+  target = "satisfaction_level",
+
+  feat_num = c(
+    "last_evaluation", 
+    "number_project", 
+    "average_monthly_hours", 
+    "time_spend_company",
+    "Work_accident",
+    "promotion_last_5years",
+    "salary",
+    "package"
+  ),
+  
+  feat_cat = c(
+    "division"
+  )
+)
+
+
+# Loading data
+#   Combine train test and convert cat data to factor
+dt_full <- rbindlist(
+  list(
+    train = fread(file = "../data/train.csv", key = "id"),
+    test = fread(file = "../data/test.csv", key = "id")
+  ),
+  use.names = TRUE, 
+  fill = TRUE, 
+  idcol = "setID"
+)
+```
+
+### Data loading
+```{r}
+# Salary and package are ordered
+#   convert to numerical data
+dt_full[
+  , salary := as.numeric(
+    factor(salary, levels = c("low", "medium", "high"), ordered = TRUE)
+  )
+]
+dt_full[
+  , package := as.numeric(
+    factor(package, levels = rev(c('a', 'b', 'c', 'd', 'e')), ordered = TRUE)
+  )
+]
+dt_full[, division := factor(division)]
+dt_full_copy <- copy(dt_full)
+```
+
+### Feature Engineering
+```{r}
+# Salary / division average
+dt_full[, sal_avg_ratio_by_div := salary / mean(salary), by = "division"]
+
+# Salary / time company
+dt_full[, sal_comp_ratio := salary / time_spend_company]
+
+# Salary / num project
+dt_full[, sal_proj_ratio := salary / number_project]
+
+# Num project / time company
+dt_full[, proj_comp_ratio := number_project / time_spend_company]
+
+# accident * promotion
+dt_full[, acc_prom_mult := promotion_last_5years * Work_accident]
+
+meta[["feat_num"]] <- c(
+  meta$feat_num,
+  "sal_avg_ratio_by_div",
+  "sal_comp_ratio",
+  "sal_proj_ratio",
+  "acc_prom_mult"
+) %>% unique()
+```
+
+### Data Set Partition
+```{r}
+# One-hot encoding for division
+dt_full <- one_hot(dt_full, "division")
+
+# Partition to train-test
+dt_full <- split(dt_full, dt_full[["setID"]])
+
+# Prepare matrix for glmnet
+meta[["feat_cat"]] <- colnames(dt_full$train)[
+  grep("^division_", colnames(dt_full$train))
+]
+
+mt_glmnet <- lapply(
+  dt_full,
+  function(dt, feat) {
+    as.matrix(dt[, feat, with = FALSE])
+  },
+  feat = c(meta$feat_cat, meta$feat_num)
+)
+```
+
+
+### Try to train a basic elastic net model
+```{r}
+cv_glmnet <- cv.glmnet(mt_glmnet$train, dt_full$train[[meta$target]])
+plot(cv_glmnet)
+
+model_glmnet <- glmnet(
+  mt_glmnet$train, 
+  dt_full$train[[meta$target]],
+  alpha = 0.2,
+  lambda = cv_glmnet$lambda.1se
+)
+
+dt_full$train[, margin_glmnet := predict(model_glmnet, mt_glmnet$train)]
+dt_full$test[, margin_glmnet := predict(model_glmnet, mt_glmnet$test)]
+
+my.mse(dt_full$train$satisfaction_level, dt_full$train$margin_glmnet)
+dt_full$train[, abs_loss_glmnet := abs(satisfaction_level - margin_glmnet)]
+
+for (i in 1:20) {
+  print(dt_full$train[, mean(abs_loss_glmnet^2)])
+  model_glmnet_ada <- glmnet(
+    mt_glmnet$train, 
+    dt_full$train[[meta$target]],
+    alpha = 0.8,
+    lambda = cv_glmnet$lambda.1se,
+    weights = dt_full$train[, abs_loss_glmnet]
+  )
+  
+  dt_full$train[, margin_glmnet_ada := predict(model_glmnet_ada, mt_glmnet$train)]
+  dt_full$train[, abs_loss_glmnet := abs(satisfaction_level - margin_glmnet_ada) * 10]
+}
+
+my.mse(dt_full$train$satisfaction_level, dt_full$train$margin_glmnet_ada)
+```
+
+
+
+
+```{r}
+# Create xgb.DMatrix
+my.DMatrix <- function(dt, tar, feat, margin = NULL) {
+  
+  mt <- as.matrix(dt[, feat, with = FALSE])
+  mt <- xgb.DMatrix(
+    data = mt,
+    label = dt[[tar]]
+  )
+  
+  if (!is.null(margin))
+    setinfo(mt, "base_margin", dt[[margin]])
+  
+  return(mt)
+}
+
+mt_xgb <- lapply(
+  dt_full,
+  my.DMatrix,
+  tar = meta$target,
+  feat = meta$feat_num,
+  margin = "margin_glmnet"
+)
+```
+
+### XGBoost Quick Model
+
+```{r}
+args_xgb <- list(
+  objective = "reg:squarederror",
+  eval_metric = "rmse",
+  
+  eta = 0.05,
+  max_depth = 6,
+  
+  subsample = 0.75,
+  colsample_bytree = 0.75,
+  
+  min_child_weight = 300,
+  gamma = 0.15,
+  lambda = 20
+)
+
+cv_xgb <- xgb.cv(
+  params = args_xgb,
+  data = mt_xgb$train,
+  nrounds = 1024,
+  
+  early_stopping_rounds = 50,
+  maximize = FALSE,
+  
+  verbose = 1,
+  print_every_n = 50,
+  
+  nfold = 5,
+  showsd = TRUE
+)
+
+model_xgb <- xgb.train(
+  params = args_xgb,
+  data = mt_xgb$train,
+  nrounds = 1024,
+  
+  early_stopping_rounds = 50,
+  maximize = FALSE,
+  watchlist = list(train = mt_xgb$train),
+  
+  verbose = 1,
+  print_every_n = 50
+)
+```
+
+### Scoring
+```{r}
+dt_full$train[, margin_xgb := predict(
+  model_xgb, mt_xgb$train, ntreelimit = model_xgb$best_ntreelimit
+)]
+dt_full$test[, margin_xgb := predict(
+  model_xgb, mt_xgb$test, ntreelimit = model_xgb$best_ntreelimit
+)]
+
+my.mse <- function(y, y_hat) {
+  mean((y - y_hat)^2)
+}
+
+my.mse(dt_full$train$satisfaction_level, dt_full$train$margin_xgb)
+```
