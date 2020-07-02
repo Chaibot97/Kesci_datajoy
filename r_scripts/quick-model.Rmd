@@ -78,18 +78,37 @@ dt_full[, sal_comp_ratio := salary / time_spend_company]
 # Salary / num project
 dt_full[, sal_proj_ratio := salary / number_project]
 
-# Num project / time company
-dt_full[, proj_comp_ratio := number_project / time_spend_company]
+# Salary / eval
+dt_full[, sal_eval_ratio := salary / last_evaluation]
 
-# accident * promotion
-dt_full[, acc_prom_mult := promotion_last_5years * Work_accident]
+# Salary / time month
+dt_full[, sal_time_ratio := salary / average_monthly_hours]
+
+# Pkg / division average
+dt_full[, pkg_avg_ratio_by_div := package / mean(package), by = "division"]
+
+# Pkg / num project
+dt_full[, pkg_proj_ratio := package / number_project]
+
+# Eval / time company
+dt_full[, eval_comp_ratio := last_evaluation / time_spend_company]
+
+# Eval / time month
+dt_full[, eval_time_ratio := last_evaluation / average_monthly_hours]
 
 meta[["feat_num"]] <- c(
   meta$feat_num,
   "sal_avg_ratio_by_div",
   "sal_comp_ratio",
   "sal_proj_ratio",
-  "acc_prom_mult"
+  "sal_eval_ratio",
+  "sal_time_ratio",
+  
+  "pkg_avg_ratio_by_div",
+  "pkg_proj_ratio",
+  
+  "eval_comp_ratio",
+  "eval_time_ratio"
 ) %>% unique()
 ```
 
@@ -130,25 +149,7 @@ model_glmnet <- glmnet(
 
 dt_full$train[, margin_glmnet := predict(model_glmnet, mt_glmnet$train)]
 dt_full$test[, margin_glmnet := predict(model_glmnet, mt_glmnet$test)]
-
 my.mse(dt_full$train$satisfaction_level, dt_full$train$margin_glmnet)
-dt_full$train[, abs_loss_glmnet := abs(satisfaction_level - margin_glmnet)]
-
-for (i in 1:20) {
-  print(dt_full$train[, mean(abs_loss_glmnet^2)])
-  model_glmnet_ada <- glmnet(
-    mt_glmnet$train, 
-    dt_full$train[[meta$target]],
-    alpha = 0.8,
-    lambda = cv_glmnet$lambda.1se,
-    weights = dt_full$train[, abs_loss_glmnet]
-  )
-  
-  dt_full$train[, margin_glmnet_ada := predict(model_glmnet_ada, mt_glmnet$train)]
-  dt_full$train[, abs_loss_glmnet := abs(satisfaction_level - margin_glmnet_ada) * 10]
-}
-
-my.mse(dt_full$train$satisfaction_level, dt_full$train$margin_glmnet_ada)
 ```
 
 
@@ -174,7 +175,7 @@ mt_xgb <- lapply(
   dt_full,
   my.DMatrix,
   tar = meta$target,
-  feat = meta$feat_num,
+  feat = c(meta$feat_num),
   margin = "margin_glmnet"
 )
 ```
@@ -187,20 +188,21 @@ args_xgb <- list(
   eval_metric = "rmse",
   
   eta = 0.05,
-  max_depth = 6,
+  max_depth = 13,
+  max_delta_step = 1,
   
-  subsample = 0.75,
-  colsample_bytree = 0.75,
+  subsample = 0.5,
+  colsample_bytree = 0.6,
   
-  min_child_weight = 300,
-  gamma = 0.15,
-  lambda = 20
+  min_child_weight = 25,
+  gamma = 0.3,
+  lambda = 75
 )
 
 cv_xgb <- xgb.cv(
   params = args_xgb,
   data = mt_xgb$train,
-  nrounds = 1024,
+  nrounds = 512,
   
   early_stopping_rounds = 50,
   maximize = FALSE,
@@ -215,7 +217,7 @@ cv_xgb <- xgb.cv(
 model_xgb <- xgb.train(
   params = args_xgb,
   data = mt_xgb$train,
-  nrounds = 1024,
+  nrounds = 512,
   
   early_stopping_rounds = 50,
   maximize = FALSE,
@@ -225,6 +227,17 @@ model_xgb <- xgb.train(
   print_every_n = 50
 )
 ```
+
+### Importance
+```{r}
+importance_xgb <- xgb.importance(colnames(mt_xgb$train), model_xgb)
+importance_xgb_plt <- xgb.ggplot.importance(
+  importance_xgb,
+  rel_to_first = TRUE
+)
+importance_xgb_plt
+```
+
 
 ### Scoring
 ```{r}
