@@ -195,7 +195,7 @@ args_xgb <- list(
   colsample_bytree = 0.6,
   
   min_child_weight = 25,
-  gamma = 0.3,
+  gamma = 0.35,
   lambda = 75
 )
 
@@ -217,7 +217,7 @@ cv_xgb <- xgb.cv(
 model_xgb <- xgb.train(
   params = args_xgb,
   data = mt_xgb$train,
-  nrounds = 512,
+  nrounds = 1024,
   
   early_stopping_rounds = 50,
   maximize = FALSE,
