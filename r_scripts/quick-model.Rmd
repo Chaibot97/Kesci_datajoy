@@ -137,13 +137,17 @@ mt_glmnet <- lapply(
 
 ### Try to train a basic elastic net model
 ```{r}
-cv_glmnet <- cv.glmnet(mt_glmnet$train, dt_full$train[[meta$target]])
+cv_glmnet <- cv.glmnet(
+  mt_glmnet$train, 
+  dt_full$train[[meta$target]],
+  alpha = 0.95
+)
 plot(cv_glmnet)
 
 model_glmnet <- glmnet(
   mt_glmnet$train, 
   dt_full$train[[meta$target]],
-  alpha = 0.2,
+  alpha = 0.95,
   lambda = cv_glmnet$lambda.1se
 )
 
